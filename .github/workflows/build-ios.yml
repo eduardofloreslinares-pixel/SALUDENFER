@@ -15,10 +15,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Localizar el proyecto de Xcode
+        run: |
+          source="$GITHUB_WORKSPACE"
+          if [[ -f "$source/Enfermedades-iOS/Enfermedades.xcodeproj/project.pbxproj" && ! -f "$source/Enfermedades.xcodeproj/project.pbxproj" ]]; then
+            source="$source/Enfermedades-iOS"
+          elif [[ ! -f "$source/Enfermedades.xcodeproj/project.pbxproj" && -f "$source/Enfermedades-iOS.zip" ]]; then
+            extraction="$(mktemp -d "$RUNNER_TEMP/enfermedades.XXXXXX")"
+            unzip -q "$source/Enfermedades-iOS.zip" -d "$extraction"
+            source="$extraction/Enfermedades-iOS"
+          fi
+          if [[ ! -f "$source/Enfermedades.xcodeproj/project.pbxproj" ]]; then
+            echo "::error::Falta el proyecto de Xcode. Sube Enfermedades-iOS.zip o la carpeta del proyecto a la rama de este workflow."
+            exit 1
+          fi
+          printf 'APP_SOURCE_DIR=%s\n' "$source" >> "$GITHUB_ENV"
+
       - name: Compilar para iPhone
         run: |
           xcodebuild -version
-          xcodebuild -project Enfermedades.xcodeproj -scheme Enfermedades \
+          xcodebuild -project "$APP_SOURCE_DIR/Enfermedades.xcodeproj" -scheme Enfermedades \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
 
@@ -28,7 +44,7 @@ jobs:
           mkdir -p ipa/Payload
           cp -R build/Build/Products/Release-iphoneos/Enfermedades.app "$app"
           codesign --force --sign - --generate-entitlement-der \
-            --entitlements Enfermedades/Enfermedades.entitlements "$app"
+            --entitlements "$APP_SOURCE_DIR/Enfermedades/Enfermedades.entitlements" "$app"
           codesign -d --entitlements - "$app" > ipa/signed-entitlements.plist
           python3 - ipa/signed-entitlements.plist <<'PY'
           import plistlib
