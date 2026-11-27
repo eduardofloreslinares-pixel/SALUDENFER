@@ -22,10 +22,23 @@ jobs:
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
 
-      - name: Empaquetar IPA sin firmar
+      - name: Empaquetar IPA con HealthKit para SideStore
         run: |
+          app=ipa/Payload/Enfermedades.app
           mkdir -p ipa/Payload
-          cp -R build/Build/Products/Release-iphoneos/Enfermedades.app ipa/Payload/
+          cp -R build/Build/Products/Release-iphoneos/Enfermedades.app "$app"
+          codesign --force --sign - --generate-entitlement-der \
+            --entitlements Enfermedades/Enfermedades.entitlements "$app"
+          codesign -d --entitlements - "$app" > ipa/signed-entitlements.plist
+          python3 - ipa/signed-entitlements.plist <<'PY'
+          import plistlib
+          import sys
+
+          with open(sys.argv[1], "rb") as file:
+              entitlements = plistlib.load(file)
+          if entitlements.get("com.apple.developer.healthkit") is not True:
+              sys.exit("Falta el permiso de HealthKit en la firma")
+          PY
           cd ipa
           zip -qry Enfermedades.ipa Payload
 
