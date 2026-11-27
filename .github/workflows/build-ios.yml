@@ -1,0 +1,36 @@
+name: Compilar Enfermedades
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar para iPhone
+        run: |
+          xcodebuild -version
+          xcodebuild -project Enfermedades.xcodeproj -scheme Enfermedades \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+
+      - name: Empaquetar IPA sin firmar
+        run: |
+          mkdir -p ipa/Payload
+          cp -R build/Build/Products/Release-iphoneos/Enfermedades.app ipa/Payload/
+          cd ipa
+          zip -qry Enfermedades.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Enfermedades-IPA
+          path: ipa/Enfermedades.ipa
+          if-no-files-found: error
