@@ -45,7 +45,7 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/Enfermedades.app "$app"
           codesign --force --sign - --generate-entitlement-der \
             --entitlements "$APP_SOURCE_DIR/Enfermedades/Enfermedades.entitlements" "$app"
-          codesign -d --entitlements - "$app" > ipa/signed-entitlements.plist
+          codesign -d --entitlements - --xml "$app" > ipa/signed-entitlements.plist
           python3 - ipa/signed-entitlements.plist <<'PY'
           import plistlib
           import sys
